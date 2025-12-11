@@ -278,6 +278,170 @@ Trigger � Authentication � Data Fetch � Transform � Action � Response
 
 ---
 
+## Python API Client (n8n_client)
+
+A Python wrapper for managing n8n workflows programmatically from your code editor.
+
+### Prerequisites
+
+1. **Python 3.11+** installed
+2. **uv** package manager ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
+3. **n8n API key** from your n8n instance (Settings → n8n API → Create API key)
+
+### Setup
+
+```bash
+# Clone and enter the project
+cd n8n-magic
+
+# Install dependencies
+uv sync
+
+# Configure credentials (copy and edit)
+cp .env.example .env
+```
+
+Edit `.env` with your credentials:
+```bash
+N8N_host="https://your-n8n-instance.com/"
+N8N_API_KEY="your-api-key-here"
+```
+
+### Quick Start
+
+```python
+from n8n_client import N8nClient
+
+# Initialize (auto-loads from .env)
+client = N8nClient()
+
+# List all workflows
+workflows = client.list_workflows()
+for wf in workflows.data:
+    print(f"{wf.id}: {wf.name} (active: {wf.active})")
+```
+
+### API Reference
+
+#### List Workflows
+```python
+# List all workflows
+workflows = client.list_workflows()
+
+# With filters
+workflows = client.list_workflows(
+    active=True,           # Only active workflows
+    name="search term",    # Filter by name
+    limit=50               # Max results (default 100, max 250)
+)
+```
+
+#### Get Workflow
+```python
+workflow = client.get_workflow("workflow-id")
+print(workflow["name"])
+print(workflow["nodes"])
+```
+
+#### Create Workflow
+```python
+# From dict
+new_workflow = client.create_workflow({
+    "name": "My New Workflow",
+    "nodes": [
+        {
+            "id": "trigger-1",
+            "name": "Manual Trigger",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [100, 100],
+            "parameters": {}
+        }
+    ],
+    "connections": {},
+    "settings": {}
+})
+print(f"Created: {new_workflow['id']}")
+
+# From JSON file
+created = client.import_from_file("path/to/workflow.json")
+```
+
+#### Update Workflow
+```python
+client.update_workflow("workflow-id", {
+    "name": "Updated Name",
+    "nodes": [...],
+    "connections": {...},
+    "settings": {}
+})
+```
+
+#### Delete Workflow
+```python
+client.delete_workflow("workflow-id")
+```
+
+#### Activate/Deactivate
+```python
+client.activate_workflow("workflow-id")
+client.deactivate_workflow("workflow-id")
+```
+
+#### Export Workflow
+```python
+# Export to JSON file
+client.export_to_file("workflow-id", "output/my-workflow.json")
+```
+
+### Running from Command Line
+
+```bash
+# List workflows
+uv run python -c "
+from n8n_client import N8nClient
+client = N8nClient()
+for wf in client.list_workflows().data:
+    print(f'{wf.id}: {wf.name}')
+"
+
+# Export a workflow
+uv run python -c "
+from n8n_client import N8nClient
+N8nClient().export_to_file('workflow-id', 'exported.json')
+"
+
+# Import a workflow
+uv run python -c "
+from n8n_client import N8nClient
+result = N8nClient().import_from_file('workflow.json')
+print(f'Created: {result[\"id\"]}')
+"
+```
+
+### Error Handling
+
+```python
+from n8n_client import N8nClient, N8nClientError
+
+client = N8nClient()
+
+try:
+    workflow = client.get_workflow("nonexistent-id")
+except N8nClientError as e:
+    print(f"Error: {e}")
+    print(f"Status code: {e.status_code}")
+    print(f"Response: {e.response}")
+```
+
+### Running Tests
+
+```bash
+uv run pytest tests/ -v
+```
+
+---
+
 ## MCP Tools Available
 
 This project has access to n8n MCP tools:
