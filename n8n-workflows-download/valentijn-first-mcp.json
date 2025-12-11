@@ -1,0 +1,576 @@
+{
+  "id": "8aGlKHGEKnkCiG6m",
+  "name": "Valentijn - First MCP",
+  "active": true,
+  "isArchived": false,
+  "versionId": "de067a85-fa8a-419b-93b1-67b478d9ec34",
+  "triggerCount": 2,
+  "createdAt": "2025-11-04T09:21:02.236Z",
+  "updatedAt": "2025-12-11T09:15:17.759Z",
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post a message": {
+      "main": [
+        []
+      ]
+    },
+    "Call 'GET - Messages'": {
+      "ai_tool": [
+        []
+      ]
+    },
+    "Call - Get Channels": {
+      "ai_tool": [
+        []
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        []
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get full individual message": {
+      "ai_tool": [
+        []
+      ]
+    },
+    "Get the messages of a community in Chainels": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Community": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message in Chainels": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST - Message": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "path": "00d39d6f-6d2f-4c32-b447-f094deb8ea1b"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        336
+      ],
+      "id": "3fc77c66-b1c9-4377-9f22-da2c957febd2",
+      "name": "MCP Server Trigger",
+      "webhookId": "00d39d6f-6d2f-4c32-b447-f094deb8ea1b",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "resource": "Company",
+        "operation": "Get Company",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.chainels",
+      "typeVersion": 1,
+      "position": [
+        208,
+        848
+      ],
+      "id": "2f9838b1-3d00-4c36-a789-c822a93957f0",
+      "name": "Get a company"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1872,
+        336
+      ],
+      "id": "ac307fba-4420-441f-9009-0ed56997cd5d",
+      "name": "When chat message received",
+      "webhookId": "a721c867-fa05-47bd-9fb0-239ab6bc59a4"
+    },
+    {
+      "parameters": {
+        "content": "Client",
+        "height": 448,
+        "width": 976
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1984,
+        240
+      ],
+      "id": "df974803-7ebd-4d1b-9249-548a2c93b3e3",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=Overview\n\nYou are the Main Orchestrator Agent — an autonomous system that interprets and executes user instructions end-to-end using available sub-agents and MCP tools.\nYou act without human intervention, except when critical data is missing and cannot be inferred automatically.\n\nCurrent time: {{ $now.toString() }} (Europe/Amsterdam)\n\nYour core traits are autonomy, accuracy, and completion on the first attempt.\n\n⸻\n\nTools\n\t•\tGet Channels – to retrieve available channels\n\t•\tGet Timeline messages - to retrieve the messages written on the timeline\n\t•\tGet Messages - to retrieve full message content\n\nRules:\nYou should only ask vital information if you are missing information, other than that, take the default values.\n\nTone of voice:\nAvoid using ids or other keys.",
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1680,
+        336
+      ],
+      "id": "d43fb1e0-d3ff-473c-9917-f8e1608b10bc",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-5-nano"
+        },
+        "options": {
+          "reasoningEffort": "medium"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1760,
+        544
+      ],
+      "id": "4362ab72-5726-44e6-bc46-6a253a595b6f",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "resource": "Timeline",
+        "operation": "Write In Timeline",
+        "community_id": "111737106733632327",
+        "body": "{\n  \"msg_type\": \"Message\",\n  \"publish_status\": \"draft\",\n  \"scheduled_at\": \"2025-11-10T14:15:22Z\",\n  \"title\": \"Lorem ipsum dolor\",\n  \"content\": \"sit amet, consectetur adipiscing elit. Mauris metus velit, imperdiet vehicula pharetra quis, vestibulum id massa\",\n  \"channel_id\": \"501375950990297484\",\n  \"is_replies_disabled\": false,\n  \"attachments\": [\n    {\n      \"id\": \"82ee231e-1f2c-4ae0-bf2f-ebaa3da78b30\"\n    }\n  ],\n  \"targets\": {\n    \"id\": \"qclusters_193245345345218\"\n  }\n}",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.chainels",
+      "typeVersion": 1,
+      "position": [
+        208,
+        1056
+      ],
+      "id": "01456643-c1d8-40dd-b721-8fa3fe90e637",
+      "name": "Post a message"
+    },
+    {
+      "parameters": {
+        "description": "GET - Messages Node - Complete Documentation\nGeneral Description\nCall this tool to retrieve messages, events, and surveys published on the timeline of a channel. This node queries your messaging API and returns a list of messages based on your specified parameters.\nTool Rules\n\nDefault Channel: If no channel is defined, the API uses the default value \"all\", which retrieves messages from all channels in your workspace.\nDefault Date Range: If no from and to dates are specified, take the last 3 months as best practice.\nTimestamp Format: All date parameters (from and to) must be provided in UNIX timestamp format (seconds since January 1, 1970).\nDefault Message Count: If no count is specified, the API returns 10 messages by default. Adjust the count parameter to retrieve more or fewer results.\nMessage ID for Follow-up Calls: The id field returned in the response can be used as the msg_id parameter in subsequent API calls to retrieve detailed information about individual messages.\nPerformance Note: Requesting large message counts (over 500) or wide date ranges may result in slower response times or timeouts. For best results, keep the count under 500 and limit date ranges to no more than 12 months.",
+        "workflowId": {
+          "__rl": true,
+          "value": "jnuvuRubEf1NtTXX",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/jnuvuRubEf1NtTXX",
+          "cachedResultName": "GET - Messages"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "from": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('from', `Type: Integer (UNIX timestamp in seconds)\nRequired: No\nDefault Behavior: If not specified, defaults to 3 months before the to date\nDescription: The start date for retrieving messages, specified as a UNIX timestamp in seconds. This defines the earliest message to include in the results. If you want messages from the last 3 months, leave this empty and set to to the current time.`, 'number') }}",
+            "to": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('to', `Type: Integer (UNIX timestamp in seconds)\nRequired: No\nDefault Behavior: If not specified, defaults to the current time\nDescription: The end date for retrieving messages, specified as a UNIX timestamp in seconds. This defines the latest message to include in the results. Typically set to \"now\" or the current timestamp.`, 'number') }}",
+            "channel": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('channel', `Type: String\nRequired: No\nDefault Value: \"all\"\nDescription: The specific channel to retrieve messages from. Use the channel ID to filter messages to a single channel, or use \"all\" to retrieve messages from all channels in the workspace.`, 'number') }}",
+            "count": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('count', `Type: Integer\nRequired: No\nDefault Value: 10\nDescription: The maximum number of messages to retrieve. This limits the result set size. Use higher values to get more messages, but be aware that larger counts may take longer to process and return more data.`, 'number') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "to",
+              "displayName": "to",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        352
+      ],
+      "id": "06c211b1-dd7c-47f7-965d-ade140ce8f7f",
+      "name": "Call 'GET - Messages'"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -1952,
+        800
+      ],
+      "id": "9827d55a-0ff8-4c0f-bc36-1e403494c601",
+      "name": "Call n8n Workflow Tool"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Ussunvjjt3kzAYJz",
+          "mode": "list"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        688,
+        752
+      ],
+      "name": "Call GET - Channels",
+      "id": "a1127ea7-a054-487f-8c09-016681154535"
+    },
+    {
+      "parameters": {
+        "description": "Call this tool to get all available channels. The default is all.",
+        "workflowId": {
+          "__rl": true,
+          "value": "Ussunvjjt3kzAYJz",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/Ussunvjjt3kzAYJz",
+          "cachedResultName": "GET - Channels"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "sorted": true
+          },
+          "matchingColumns": [
+            "sorted"
+          ],
+          "schema": [
+            {
+              "id": "sorted",
+              "displayName": "sorted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        688
+      ],
+      "id": "06a991b5-22af-4981-bede-9c12ee055cdf",
+      "name": "Call - Get Channels"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1584,
+        816
+      ],
+      "id": "ab7a83de-a468-4674-80b5-fbb47c43651e",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://internal.integrations.chainels.com/mcp/00d39d6f-6d2f-4c32-b447-f094deb8ea1b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        -1376,
+        544
+      ],
+      "id": "61d95020-e7c5-4c61-8524-89746951ef2f",
+      "name": "MCP Client"
+    },
+    {
+      "parameters": {
+        "content": "MCP Server definition",
+        "height": 528,
+        "width": 848,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -816,
+        256
+      ],
+      "typeVersion": 1,
+      "id": "a8ea7408-b320-4ee7-bdff-ba5ddafae3be",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L0ZDnX2tkYhV1rMZ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/L0ZDnX2tkYhV1rMZ",
+          "cachedResultName": "GET - Individual message"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        496
+      ],
+      "name": "Call GET - Individual message",
+      "id": "85e4b25b-8e1b-40ec-8b23-93c6b283e3c0"
+    },
+    {
+      "parameters": {
+        "description": "Call this tool to get the full content of an individual message.",
+        "workflowId": {
+          "__rl": true,
+          "value": "L0ZDnX2tkYhV1rMZ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/L0ZDnX2tkYhV1rMZ",
+          "cachedResultName": "GET - Individual message"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "msg_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('msg_id', ``, 'number') }}"
+          },
+          "matchingColumns": [
+            "msg_id"
+          ],
+          "schema": [
+            {
+              "id": "msg_id",
+              "displayName": "msg_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        496
+      ],
+      "id": "e1941086-aa0a-488c-acf7-0551f41c1b0c",
+      "name": "Get full individual message"
+    },
+    {
+      "parameters": {
+        "resource": "Timeline",
+        "operation": "Get Timeline",
+        "community_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Community_Id', `The community id can be retrieved via the \"GET Environment\"  tool.`, 'string') }}",
+        "count": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Count', `Can be max 30.`, 'number') }}",
+        "from": "={{ $fromAI('From', 'as Unix timestamp in seconds since epoch', 'number') || DateTime.now().minus({ months: 3 }).toSeconds() }}",
+        "to": "={{ $fromAI('To', 'as Unix timestamp in seconds since epoch', 'number') || DateTime.now().minus({ months: 0 }).toSeconds() }}",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.chainelsTool",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        560
+      ],
+      "id": "58550b1e-9425-4b27-8d61-3cc9c4790aec",
+      "name": "Get the messages of a community in Chainels"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get the active community of the user. ",
+        "resource": "Environment",
+        "operation": "Get Environments",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.chainelsTool",
+      "typeVersion": 1,
+      "position": [
+        -768,
+        560
+      ],
+      "id": "81db2119-c3fc-4517-85f7-986e0a4f20ac",
+      "name": "GET Community"
+    },
+    {
+      "parameters": {
+        "resource": "Messages",
+        "operation": "Get Message",
+        "msg_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Msg_Id', `You can get the msg_id (message id) from the GET Timeline messages tool.`, 'string') }}",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.chainelsTool",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        560
+      ],
+      "id": "c0ce4319-940d-4d94-97a8-2868f04f62dd",
+      "name": "Get a message in Chainels"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=Use this tool to draft a message to Chainels community timeline. Use the description of the body to format the right body.\n\nExample body of how to call:\n{\n  \"msg_type\": \"Message\",\n  \"publish_status\": \"draft\",\n  \"scheduled_at\": \"2019-08-24T14:15:22Z\",\n  \"title\": \"Lorem ipsum dolor\",\n  \"content\": \"sit amet, consectetur adipiscing elit. Mauris metus velit, imperdiet vehicula pharetra quis, vestibulum id massa\",\n  \"channel_id\": \"501375950990297484\",\n  \"is_replies_disabled\": false,\n  \"attachments\": [\n    {\n      \"id\": \"82ee231e-1f2c-4ae0-bf2f-ebaa3da78b30\"\n    }\n  ],\n  \"targets\": {\n    \"id\": \"qclusters_193245345345218\"\n  }\n}",
+        "resource": "Timeline",
+        "operation": "Write In Timeline",
+        "community_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Community_Id', ``, 'string') }}",
+        "body": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Body', ``, 'json') }}",
+        "requestOptions": {}
+      },
+      "type": "CUSTOM.chainelsTool",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        576
+      ],
+      "id": "fe0acb73-105e-4402-90d7-dac0c9bd9a5f",
+      "name": "POST - Message"
+    }
+  ],
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "parentFolderId": null
+}

@@ -1,0 +1,287 @@
+{
+  "name": "Utopi Vertus - Community Consumption Data",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "utopi-consumption",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "webhookId": "utopi-consumption"
+    },
+    {
+      "parameters": {
+        "url": "https://login.microsoftonline.com/c1365f8a-9b37-4a25-8af0-5c7b84f88917/oauth2/v2.0/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "898aa6bd-f6ed-4252-94c7-7019e22f7afe"
+            },
+            {
+              "name": "client_secret",
+              "value": "{{AZURE_CLIENT_SECRET}}"
+            },
+            {
+              "name": "scope",
+              "value": "api://898aa6bd-f6ed-4252-94c7-7019e22f7afe/.default"
+            },
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "id": "get-utopi-token",
+      "name": "Get Utopi Token"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.chainels.com/api/v2/companies/{{ $('Webhook Trigger').item.json.body.community_id }}/members",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include",
+              "value": "custom_fields"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Webhook Trigger').item.json.body.chainels_token }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "id": "get-chainels-members",
+      "name": "Get Chainels Members"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Extract households with space_uuid custom field\nconst members = $('Get Chainels Members').first().json;\nconst webhookData = $('Webhook Trigger').first().json.body;\n\nconst households = [];\n\n// Members is an array of Chain objects\nfor (const chain of members) {\n  const entity = chain.company;\n  \n  // Only process households\n  if (entity && entity.entity_type === 'household') {\n    // Find space_uuid in custom_fields\n    let spaceUuid = null;\n    if (entity.custom_fields && Array.isArray(entity.custom_fields)) {\n      for (const field of entity.custom_fields) {\n        if (field.definition && field.definition.name && \n            field.definition.name.toLowerCase().includes('space_uuid')) {\n          spaceUuid = field.value;\n          break;\n        }\n      }\n    }\n    \n    if (spaceUuid) {\n      households.push({\n        zone_id: entity.id,\n        zone_name: entity.name,\n        space_uuid: spaceUuid\n      });\n    }\n  }\n}\n\n// Return each household as a separate item for the loop\nreturn households.map(h => ({ json: h }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "id": "extract-households",
+      "name": "Extract Households"
+    },
+    {
+      "parameters": {
+        "url": "=https://partner-api.utopi.io/v2/spaces/{{ $json.space_uuid }}/aggregate/electricity/daily",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fromDateTime",
+              "value": "={{ $('Webhook Trigger').item.json.body.start_date }}"
+            },
+            {
+              "name": "toDateTime",
+              "value": "={{ $('Webhook Trigger').item.json.body.end_date }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "SiteId",
+              "value": "9584D210-52FB-4E58-BE55-FED31AB6A260"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Utopi Token').item.json.access_token }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 200],
+      "id": "get-electricity",
+      "name": "Get Electricity"
+    },
+    {
+      "parameters": {
+        "url": "=https://partner-api.utopi.io/v2/spaces/{{ $('Extract Households').item.json.space_uuid }}/aggregate/heating/daily",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fromDateTime",
+              "value": "={{ $('Webhook Trigger').item.json.body.start_date }}"
+            },
+            {
+              "name": "toDateTime",
+              "value": "={{ $('Webhook Trigger').item.json.body.end_date }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "SiteId",
+              "value": "9584D210-52FB-4E58-BE55-FED31AB6A260"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Utopi Token').item.json.access_token }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 200],
+      "id": "get-heating",
+      "name": "Get Heating"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Transform consumption data to required format\nconst results = [];\nconst items = $input.all();\n\nfor (const item of items) {\n  const household = $('Extract Households').item.json;\n  const electricity = $('Get Electricity').item.json;\n  const heating = $('Get Heating').item.json;\n  \n  // Process electricity time series\n  if (electricity && electricity.timeSeries) {\n    for (const point of electricity.timeSeries) {\n      results.push({\n        zone_id: household.zone_id,\n        zone_name: household.zone_name,\n        metric_type: 'electricity',\n        date: point.timestamp.split('T')[0],\n        value: point.value\n      });\n    }\n  }\n  \n  // Process heating time series\n  if (heating && heating.timeSeries) {\n    for (const point of heating.timeSeries) {\n      results.push({\n        zone_id: household.zone_id,\n        zone_name: household.zone_name,\n        metric_type: 'heating',\n        date: point.timestamp.split('T')[0],\n        value: point.value\n      });\n    }\n  }\n}\n\nreturn [{ json: { data: results } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 200],
+      "id": "transform-output",
+      "name": "Transform Output"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1650, 200],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Utopi Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Utopi Token": {
+      "main": [
+        [
+          {
+            "node": "Get Chainels Members",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Chainels Members": {
+      "main": [
+        [
+          {
+            "node": "Extract Households",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Households": {
+      "main": [
+        [
+          {
+            "node": "Get Electricity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Electricity": {
+      "main": [
+        [
+          {
+            "node": "Get Heating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Heating": {
+      "main": [
+        [
+          {
+            "node": "Transform Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,346 @@
+# n8n-magic Project Instructions
+
+## Purpose
+Create production-ready n8n workflows from scoping documents.
+
+---
+
+## Current Investigation: Scoping Template Optimization
+
+### Goal
+
+Investigate whether we can generate n8n workflows programmatically from documentation and scoping documents. Use findings to improve our scoping template.
+
+### Research Questions
+
+1. What information is essential in a scoping document to generate a valid workflow?
+2. What gaps exist between current scoping template and workflow generation needs?
+3. Which workflow patterns can be reliably generated from structured input?
+4. What level of detail is needed for node configuration?
+5. How should error handling and edge cases be specified?
+
+### Success Criteria
+
+- [ ] Identify minimum required fields for workflow generation
+- [ ] Document what works well in current template
+- [ ] List missing information that blocks generation
+- [ ] Propose concrete template improvements
+
+### Key Learnings
+
+*Findings from investigation will be documented here as they emerge.*
+
+| Date | Learning | Impact on Template |
+|------|----------|-------------------|
+| | | |
+
+---
+
+## Context7 Resources for n8n
+
+When building n8n workflows, use Context7 to access up-to-date documentation:
+
+```
+# Primary n8n documentation
+mcp__context7__get-library-docs with context7CompatibleLibraryID="/n8n-io/n8n-docs"
+
+# n8n-skills for workflow patterns and best practices (HIGHLY RECOMMENDED)
+mcp__context7__get-library-docs with context7CompatibleLibraryID="/czlonkowski/n8n-skills"
+
+# Large comprehensive docs collection
+mcp__context7__get-library-docs with context7CompatibleLibraryID="/llmstxt/n8n_io_llms-full_txt"
+```
+
+### Recommended Topics to Query
+- `topic="workflow patterns"` - 5 core patterns covering 90% of use cases
+- `topic="node configuration"` - How to configure specific nodes
+- `topic="validation"` - Validation loop and error handling
+- `topic="webhook"` - Webhook trigger setup
+- `topic="HTTP request"` - API integration
+- `topic="authentication"` - OAuth, API keys, credentials
+
+---
+
+## The 5 Core Workflow Patterns
+
+90% of n8n workflows fit into these patterns:
+
+| Pattern | Use Case | Trigger |
+|---------|----------|---------|
+| **Webhook Processing** | React to external events | Webhook node |
+| **HTTP API Integration** | Connect to REST APIs | Manual/Schedule/Webhook |
+| **Database Operations** | CRUD operations | Any trigger |
+| **AI Agent Workflow** | Intelligent automation | Chat/Webhook |
+| **Scheduled Tasks** | Recurring jobs | Schedule Trigger |
+
+**Pattern Selection:**
+- External events � Webhook Processing
+- Integrate with APIs � HTTP API Integration
+- Data manipulation � Database Operations
+- AI reasoning/tools � AI Agent Workflow
+- Periodic tasks � Scheduled Tasks
+
+---
+
+## Workflow Creation Checklist
+
+### 1. Planning Phase
+- [ ] Identify the appropriate pattern from the 5 core patterns
+- [ ] List all required nodes
+- [ ] Map data flow (input � transformations � output)
+- [ ] Plan error handling strategy
+
+### 2. Implementation Phase
+- [ ] Create workflow with appropriate trigger
+- [ ] Add data source nodes
+- [ ] Configure authentication/credentials
+- [ ] Add transformation nodes (Code, Set, etc.)
+- [ ] Add output/action nodes
+- [ ] Implement error handling
+
+### 3. Validation Phase
+- [ ] Validate each node configuration individually
+- [ ] Validate complete workflow structure
+- [ ] Test with sample data
+- [ ] Test edge cases
+
+### 4. Deployment Phase
+- [ ] Review workflow settings
+- [ ] Activate workflow (manual in n8n UI)
+- [ ] Monitor initial executions
+- [ ] Document the workflow
+
+---
+
+## Node Configuration Best Practices
+
+### Start with get_node_essentials
+Always use `get_node_essentials` before configuring a node to understand required fields.
+
+### Resource/Operation Pattern
+Most n8n nodes follow this structure:
+```json
+{
+  "resource": "<entity>",
+  "operation": "<action>",
+  // ... operation-specific fields
+}
+```
+
+### Configuration Order
+1. Set parent properties first (method, resource, operation)
+2. Then configure dependent fields
+3. Validate after each significant change
+
+### HTTP Request Node Example
+```json
+{
+  "method": "POST",
+  "url": "https://api.example.com/endpoint",
+  "authentication": "none",
+  "sendBody": true,
+  "body": {
+    "contentType": "json",
+    "content": {
+      "field": "={{$json.field}}"
+    }
+  }
+}
+```
+
+---
+
+## Validation Best Practices
+
+### Validation Philosophy
+**Validate early, validate often.** Validation is iterative:
+- Expect 2-3 validate � fix cycles
+- Average: 23s thinking, 58s fixing per cycle
+
+### Validation Loop
+1. Configure node/workflow
+2. Run validation
+3. Read error messages completely
+4. Fix one error at a time
+5. Validate again
+6. Repeat until valid
+
+### Validation Profiles
+- `runtime` - Recommended for pre-deployment (balanced)
+- `minimal` - Quick checks during development
+
+### Reading Validation Results
+1. Check `valid` field first
+2. If false, iterate through `errors` array
+3. Each error has: `property`, `message`, `fix`
+4. Review warnings (not blocking but important)
+5. Consider suggestions for improvements
+
+---
+
+## Expression Syntax
+
+### Basic Expressions
+```javascript
+// Access current item data
+{{ $json.fieldName }}
+
+// Access data from another node
+{{ $node["Node Name"].json.fieldName }}
+
+// Webhook data (from body)
+{{ $json.body.data }}
+
+// Use bracket notation for spaces
+{{ $json["field name"] }}
+```
+
+### Best Practices
+- Always wrap dynamic content in `{{ }}`
+- Quote node names with spaces: `$node["Node Name"]`
+- Access webhook data from `.body`
+- Test expressions in the expression editor
+
+---
+
+## Code Node Best Practices
+
+### JavaScript Data Access
+```javascript
+// Explicit access (recommended)
+$input.first().json.field
+
+// Check for null/undefined
+const value = $input.first().json.field ?? 'default';
+
+// Process all items
+for (const item of $input.all()) {
+  // process item.json
+}
+```
+
+### Python Data Access
+```python
+# Use .get() for safe dictionary access
+value = _json.get("field", "default")
+
+# Check empty lists before access
+if _input.all():
+    first_item = _input.first()
+```
+
+---
+
+## Security Considerations
+
+### For AI Agent Workflows
+- Use read-only database credentials (SELECT only)
+- Validate redirect URLs against allow-lists
+- Never expose sensitive credentials in logs
+
+### General
+- Store credentials in n8n credential manager
+- Use environment variables for configuration
+- Validate all external input
+
+---
+
+## From Scoping Document to Workflow
+
+When converting a scoping document to n8n workflow:
+
+### Step 1: Analyze Requirements
+- Read the "Scope & Requirements" section
+- Identify triggers (button click, webhook, schedule)
+- List all integrations needed (APIs, databases, services)
+- Note security requirements
+
+### Step 2: Map to Patterns
+- Match each requirement to a core pattern
+- Complex integrations may combine multiple patterns
+- Example: OIDC flow = Webhook + HTTP API Integration
+
+### Step 3: Design Node Flow
+```
+Trigger � Authentication � Data Fetch � Transform � Action � Response
+```
+
+### Step 4: Handle Edge Cases
+- What if authentication fails?
+- What if external API is down?
+- What if data is malformed?
+
+### Step 5: Document in Proposed Solution
+- Number of workflows needed
+- Available webhooks and identifiers
+- Required API calls
+- Custom fields needed
+
+---
+
+## MCP Tools Available
+
+This project has access to n8n MCP tools:
+
+| Tool | Purpose |
+|------|---------|
+| `n8n_create_workflow` | Create new workflows |
+| `n8n_validate_workflow` | Validate entire workflow |
+| `validate_node_operation` | Validate single node config |
+| `n8n_update_partial_workflow` | Update existing workflow |
+| `search_nodes` | Find available nodes |
+| `get_node_essentials` | Get node configuration info |
+| `search_workflows` | List existing workflows |
+| `execute_workflow` | Run a workflow |
+| `get_workflow_details` | Get workflow configuration |
+
+### Workflow for Creating via MCP
+1. `search_nodes` - Find the right nodes
+2. `get_node_essentials` - Understand configuration
+3. `n8n_create_workflow` - Create the workflow
+4. `n8n_validate_workflow` - Validate it
+5. Fix any errors, validate again
+6. Activate manually in n8n UI
+
+---
+
+## Common Workflow Templates
+
+### Webhook � Transform � API
+```
+Webhook Trigger � Set/Code Node � HTTP Request � Respond to Webhook
+```
+
+### OAuth/OIDC Flow
+```
+Webhook (receive code) � HTTP Request (token exchange) � HTTP Request (userinfo) � Set (build response) � Respond/Redirect
+```
+
+### Scheduled Sync
+```
+Schedule Trigger � HTTP Request (fetch) � Code (transform) � Database/API (store)
+```
+
+---
+
+## Testing Requirements
+
+Every workflow must be tested:
+1. Test with valid input data
+2. Test with edge cases (empty, malformed)
+3. Test error handling paths
+4. Document test scenarios in workflow notes
+
+---
+
+## Project-Specific Notes
+
+### Scoping Document Location
+`confluence-templates/scoping-document-template.md`
+
+### Key Sections to Extract
+- Problem to solve � Workflow purpose
+- Scope & Requirements � Node requirements
+- Technical Challenges � Error handling needs
+- Dependencies � External integrations
+- Proposed solution � Workflow documentation
