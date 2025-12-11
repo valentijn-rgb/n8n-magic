@@ -487,6 +487,114 @@ Schedule Trigger � HTTP Request (fetch) � Code (transform) � Database/API 
 
 ---
 
+## Node Templates (n8n-skills Best Practices)
+
+Production-ready node templates are available in `n8n-workflows-templates/`:
+
+### Directory Structure
+
+```text
+n8n-workflows-templates/
+├── patterns/              # Complete workflow patterns
+│   ├── webhook-http-api.json
+│   └── scheduled-sync.json
+├── nodes/                 # Individual node templates
+│   ├── triggers/          # Webhook, Schedule
+│   ├── authentication/    # OAuth2, API Key, Basic Auth
+│   ├── http/              # GET, POST requests
+│   ├── transform/         # Code, Set, IF nodes
+│   └── output/            # Respond to Webhook
+└── code-patterns/         # JavaScript patterns
+    ├── error-handling.js
+    ├── null-safe-access.js
+    ├── array-transform.js
+    └── data-aggregation.js
+```
+
+### Usage
+
+1. **Start from a pattern**: Copy `patterns/webhook-http-api.json` as base
+2. **Customize nodes**: Replace placeholders (`{{WEBHOOK_PATH}}`, `{{TOKEN_ENDPOINT}}`, etc.)
+3. **Add/remove nodes**: Use individual templates from `nodes/`
+4. **Deploy**: Use `n8n_client` to create and activate
+
+### Critical Best Practices
+
+| Rule | Details |
+|------|---------|
+| Webhook data location | Access via `$json.body.field`, NOT `$json.field` |
+| Code node return format | Always return `[{json: {...}}]` |
+| Error handling | Use try/catch + null coalescing (`??`) |
+| Credentials | Never hardcode - use n8n credential manager |
+| Validation | Use `runtime` profile before deployment |
+
+### Expression Syntax Quick Reference
+
+| Use Case | Pattern |
+|----------|---------|
+| Current node | `{{$json.fieldName}}` |
+| Other node | `{{$node["Node Name"].json.data}}` |
+| Webhook body | `{{$json.body.fieldName}}` |
+| Webhook headers | `{{$json.headers['x-api-key']}}` |
+| Default value | `{{$json.value ?? 'default'}}` |
+| Conditional | `{{$json.active ? 'Yes' : 'No'}}` |
+
+### Code Node Patterns
+
+```javascript
+// Standard error handling - MUST return [{json: {...}}]
+try {
+  const input = $input.first().json;
+  const value = input?.field ?? 'default';  // Null-safe
+
+  if (!input.required) {
+    return [{ json: { error: 'Missing field', status: 'error' } }];
+  }
+
+  return [{ json: { result: value } }];
+} catch (error) {
+  return [{ json: { error: error.message, status: 'failed' } }];
+}
+```
+
+### Test Workflow Script
+
+```bash
+# Test workflow creation (validates and creates in n8n)
+uv run python scripts/test_workflow.py n8n-workflows-templates/patterns/webhook-http-api.json
+
+# With placeholder replacements
+uv run python scripts/test_workflow.py workflow.json -r WEBHOOK_PATH=my-test -r API_URL=https://api.example.com
+
+# Test, activate, and cleanup
+uv run python scripts/test_workflow.py workflow.json --activate --cleanup
+```
+
+### Deployment Workflow
+
+```bash
+# 1. Create workflow from template
+uv run python -c "
+from n8n_client import N8nClient
+import json
+
+client = N8nClient()
+with open('n8n-workflows-templates/patterns/webhook-http-api.json') as f:
+    workflow = json.load(f)
+
+# Customize placeholders
+workflow['name'] = 'My Integration'
+# ... replace other placeholders
+
+result = client.create_workflow(workflow)
+print(f'Created: {result[\"id\"]}')
+"
+
+# 2. Activate in n8n UI or via API
+```
+
+---
+
 ## Testing Requirements
 
 Every workflow must be tested:
@@ -507,4 +615,138 @@ Every workflow must be tested:
 - Scope & Requirements � Node requirements
 - Technical Challenges � Error handling needs
 - Dependencies � External integrations
-- Proposed solution � Workflow documentation
+- Proposed solution → Workflow documentation
+
+---
+
+## Key Learnings from Integrations
+
+### SOL-381: Utopi-Vertus Integration (2025-12-11)
+
+#### 1. n8n Expression Context Matters
+
+**Problem**: Expressions like `$json.spaceUuid` work differently depending on where they're used.
+
+| Context | Access Pattern | Notes |
+|---------|---------------|-------|
+| Inside loop | `$json.field` | Current item in iteration |
+| After HTTP Request | `$json.responseField` | Response data |
+| Reference other node | `$node["Node Name"].json.field` | Explicit node reference |
+
+**Best Practice**: Always be explicit about which node's data you're accessing. Use `$node["Node Name"]` when referencing data from a specific node.
+
+#### 2. Data Merging Strategy
+
+**Problem**: When making parallel API calls per item (e.g., electricity + heating per household), merging results by array position is unreliable.
+
+**Solution**: Use key-based merging with a Map:
+```javascript
+// Build a map keyed by unique identifier
+const electricityMap = new Map();
+for (const item of $('Get Electricity1').all()) {
+  const spaceUuid = item.json.spaceUuid;  // Preserve the key
+  electricityMap.set(spaceUuid, item.json);
+}
+
+// Merge by key, not position
+const electricity = electricityMap.get(household.space_uuid) ?? null;
+```
+
+**Key Insight**: HTTP Request nodes don't preserve input data by default. Either:
+- Store the key in a separate field before the request
+- Use `$node["Previous Node"]` to get original data
+- Enable "Include Response Headers and Status" which preserves some context
+
+#### 3. UOM Transform Table Pattern
+
+**Problem**: External APIs return data in various units. Need flexible conversion to target units.
+
+**Solution**: Centralized transform table:
+```javascript
+const UOM_TRANSFORM = {
+  'J':   { targetUnit: 'GJ', factor: 1e-9 },
+  'kJ':  { targetUnit: 'GJ', factor: 1e-6 },
+  'MJ':  { targetUnit: 'GJ', factor: 1e-3 },
+  'GJ':  { targetUnit: 'GJ', factor: 1 },
+  'kWh': { targetUnit: 'GJ', factor: 0.0036 },
+  'MWh': { targetUnit: 'GJ', factor: 3.6 },
+};
+
+function transformValue(value, apiUnit, metricType) {
+  // Skip conversion for some metric types
+  if (metricType === 'electricity') {
+    return { value, unit: apiUnit || 'kWh' };
+  }
+  const transform = UOM_TRANSFORM[apiUnit];
+  if (transform) {
+    return { value: value * transform.factor, unit: transform.targetUnit };
+  }
+  return { value, unit: apiUnit || 'unknown' };
+}
+```
+
+**Benefits**:
+- Single source of truth for conversions
+- Easy to add new units
+- Self-documenting
+- Handles unknown units gracefully
+
+#### 4. Utopi API Specifics
+
+| Aspect | Details |
+|--------|---------|
+| Auth | Azure AD OAuth2 (client_credentials) |
+| Token endpoint | `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token` |
+| Base URL | `https://partner-api.utopi.io/v2` |
+| Energy units | Returns `kWh` (not Joules as initially assumed) |
+| Rate limits | Unknown - implement batch processing |
+
+**Critical**: Always verify actual API response units. Documentation may differ from implementation.
+
+#### 5. Error Handling in Workflows
+
+**Pattern**: Use `onError: continueRegularOutput` with `neverError: true` in HTTP Request nodes:
+```javascript
+// In HTTP Request node settings
+"onError": "continueRegularOutput"
+// In options
+"options": { "neverError": true }
+```
+
+Then check for errors in Code node:
+```javascript
+if (item.json.error || item.json.statusCode >= 400) {
+  errors.push({ type: 'api_call', message: item.json.message });
+}
+```
+
+#### 6. Chainels API Custom Fields Access
+
+Custom fields in Chainels API are in `householdCustomFieldValues` array:
+```javascript
+const customFields = household.householdCustomFieldValues || [];
+const spaceUuid = customFields.find(f => f.customField?.name === 'space_uuid')?.value;
+```
+
+**Important**: Always use optional chaining (`?.`) and provide fallbacks.
+
+#### 7. JavaScript Number Precision
+
+When dealing with unit conversions, be aware of floating-point precision:
+```javascript
+// 6.1935 * 0.0036 = 0.0222966 (not exactly)
+// Use toFixed() for display, keep full precision for calculations
+const display = value.toFixed(4);
+```
+
+---
+
+### Template Impact Assessment
+
+| Learning | Template Change Needed |
+|----------|----------------------|
+| Expression context | Add section on data flow and node references |
+| Key-based merging | Require unique identifiers in data specs |
+| UOM transforms | Include unit specifications in API sections |
+| Error handling | Standardize error response format |
+| Custom fields | Document field access patterns per platform |

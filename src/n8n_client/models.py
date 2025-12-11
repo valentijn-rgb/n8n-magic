@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class N8nSettings(BaseSettings):
     """Settings loaded from environment variables."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     n8n_host: str = Field(alias="N8N_host")
     n8n_api_key: str = Field(alias="N8N_API_KEY")
