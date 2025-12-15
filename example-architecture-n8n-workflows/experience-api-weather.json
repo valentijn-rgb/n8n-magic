@@ -1,0 +1,165 @@
+{
+  "name": "Experience API - Weather",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "path": "weather",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "weather",
+      "notes": "Input: { \"city\": \"string\", \"provider\": \"string\" }",
+      "notesInFlow": true
+    },
+    {
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? {};\nconst { city, provider } = body;\n\nconst errors = [];\n\n// Validate city\nif (!city) {\n  errors.push('Missing required field: city');\n} else if (typeof city !== 'string') {\n  errors.push('Field \"city\" must be a string');\n} else if (city.trim().length === 0) {\n  errors.push('Field \"city\" cannot be empty');\n}\n\n// Validate provider\nif (!provider) {\n  errors.push('Missing required field: provider');\n} else if (typeof provider !== 'string') {\n  errors.push('Field \"provider\" must be a string');\n} else if (provider.trim().length === 0) {\n  errors.push('Field \"provider\" cannot be empty');\n}\n\nif (errors.length > 0) {\n  return [{\n    json: {\n      status: 'error',\n      error: errors.join('; '),\n      meta: {\n        timestamp: new Date().toISOString(),\n        requestedCity: city ?? null,\n        requestedProvider: provider ?? null\n      },\n      _validationFailed: true\n    }\n  }];\n}\n\n// Pass through original data with validation flag\nreturn [{\n  json: {\n    ...$input.first().json,\n    _validationFailed: false\n  }\n}];"
+      },
+      "notes": "Validates required fields: city, provider",
+      "notesInFlow": true
+    },
+    {
+      "id": "check-validation",
+      "name": "Validation Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validation-check",
+              "leftValue": "={{ $json._validationFailed }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "call-system-api",
+      "name": "Call System API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.WEBHOOK_URL ?? 'https://internal.integrations.chainels.com') + '/webhook/system-api/' + $json.body.provider }}",
+        "authentication": "none",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "city",
+              "value": "={{ $json.body.city }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "notes": "Dynamic URL: /webhook/system-api/{provider} - provider-agnostic, scales without code changes",
+      "notesInFlow": true
+    },
+    {
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1050, 200],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.status === 'success' ? 200 : ($json.code === 0 ? 404 : 400) }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "notes": "Return response from System API (pass-through)",
+      "notesInFlow": true
+    },
+    {
+      "id": "respond-validation-error",
+      "name": "Respond Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 400],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.status, error: $json.error, meta: $json.meta } }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "notes": "Return 400 for validation errors",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Validate Input", "type": "main", "index": 0 }]]
+    },
+    "Validate Input": {
+      "main": [[{ "node": "Validation Passed?", "type": "main", "index": 0 }]]
+    },
+    "Validation Passed?": {
+      "main": [
+        [{ "node": "Call System API", "type": "main", "index": 0 }],
+        [{ "node": "Respond Validation Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Call System API": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Europe/Amsterdam",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "availableInMCP": true
+  }
+}

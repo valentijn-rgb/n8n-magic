@@ -1,0 +1,98 @@
+{
+  "name": "System API - wttr.in",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "parameters": {
+        "path": "system-api/wttr",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "system-api-wttr",
+      "notes": "Input: { \"city\": \"Amsterdam\" }",
+      "notesInFlow": true
+    },
+    {
+      "id": "get-weather",
+      "name": "Get Weather",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://wttr.in/{{ $json.body.city }}?format=j1",
+        "authentication": "none",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "notes": "Fetch weather from wttr.in (includes location data)",
+      "notesInFlow": true
+    },
+    {
+      "id": "transform-to-canonical",
+      "name": "Transform to Canonical",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Transform wttr.in response to CanonicalWeather format\ntry {\n  const webhookData = $node['Webhook Trigger'].json?.body ?? {};\n  const weatherData = $node['Get Weather'].json ?? {};\n\n  // Check for API errors\n  if (weatherData.error || !weatherData.current_condition || weatherData.current_condition.length === 0) {\n    return [{\n      json: {\n        status: 'error',\n        error: weatherData.error ?? `City not found or API error: ${webhookData.city ?? 'unknown'}`,\n        meta: {\n          provider: 'wttr',\n          timestamp: new Date().toISOString(),\n          requestedCity: webhookData.city ?? 'unknown'\n        }\n      }\n    }];\n  }\n\n  // Check for location data\n  if (!weatherData.nearest_area || weatherData.nearest_area.length === 0) {\n    return [{\n      json: {\n        status: 'error',\n        error: 'Location data not available',\n        meta: {\n          provider: 'wttr',\n          timestamp: new Date().toISOString(),\n          requestedCity: webhookData.city ?? 'unknown'\n        }\n      }\n    }];\n  }\n\n  const current = weatherData.current_condition[0];\n  const area = weatherData.nearest_area[0];\n\n  // Build canonical response\n  const canonical = {\n    location: {\n      city: area.areaName?.[0]?.value ?? 'Unknown',\n      country: area.country?.[0]?.value ?? 'Unknown',\n      latitude: parseFloat(area.latitude),\n      longitude: parseFloat(area.longitude)\n    },\n    current: {\n      temperature: parseFloat(current.temp_C),\n      feelsLike: parseFloat(current.FeelsLikeC),\n      humidity: parseFloat(current.humidity),\n      windSpeed: parseFloat(current.windspeedKmph),\n      windDirection: parseFloat(current.winddirDegree),\n      weatherCode: parseInt(current.weatherCode),\n      pressure: parseFloat(current.pressure)\n    },\n    meta: {\n      provider: 'wttr',\n      timestamp: new Date().toISOString(),\n      requestedCity: webhookData.city ?? 'unknown'\n    },\n    status: 'success'\n  };\n\n  return [{ json: canonical }];\n} catch (error) {\n  return [{\n    json: {\n      status: 'error',\n      error: error.message,\n      meta: {\n        provider: 'wttr',\n        timestamp: new Date().toISOString(),\n        requestedCity: 'unknown'\n      }\n    }\n  }];\n}"
+      },
+      "notes": "Map wttr.in fields to CanonicalWeather format",
+      "notesInFlow": true
+    },
+    {
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.status === 'success' ? 200 : 400 }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "notes": "Return CanonicalWeather JSON (200 OK or 400 Error)",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Get Weather", "type": "main", "index": 0 }]]
+    },
+    "Get Weather": {
+      "main": [[{ "node": "Transform to Canonical", "type": "main", "index": 0 }]]
+    },
+    "Transform to Canonical": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Europe/Amsterdam",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "availableInMCP": true
+  }
+}
